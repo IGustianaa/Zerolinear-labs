@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zerolinear — Brand Mark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@200;300&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#000;display:grid;place-items:center;overflow:hidden}
+  .box{display:flex;flex-direction:column;align-items:center}
+  .stage{width:min(78vmin,520px);aspect-ratio:1;position:relative}
+  svg{width:100%;height:100%;display:block;overflow:visible}
+  .wordmark{margin-top:-40px;font-family:'Jost',sans-serif;font-weight:300;
+    letter-spacing:.46em;text-indent:.46em;text-transform:uppercase;color:#fff;
+    font-size:clamp(20px,4.4vw,36px)}
+  .tagline{margin-top:16px;font-family:'Jost',sans-serif;font-weight:200;
+    letter-spacing:.52em;text-indent:.52em;text-transform:uppercase;color:#5b616b;
+    font-size:11px}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="stage">
+    <svg viewBox="0 0 640 600" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="bloom" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="2.4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="soft" x="-150%" y="-150%" width="400%" height="400%">
+          <feGaussianBlur stdDeviation="15"/>
+        </filter>
+        <radialGradient id="halo" cx="50%" cy="47%" r="46%">
+          <stop offset="0%" stop-color="#eaf3ff" stop-opacity=".13"/>
+          <stop offset="60%" stop-color="#0A84FF" stop-opacity=".045"/>
+          <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="ndl" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
+          <stop offset="16%" stop-color="#fff" stop-opacity="1"/>
+          <stop offset="84%" stop-color="#fff" stop-opacity="1"/>
+          <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+
+      <circle cx="320" cy="282" r="200" fill="url(#halo)"/>
+      <ellipse cx="320" cy="292" rx="24" ry="135" fill="#fff" opacity=".05" filter="url(#soft)"/>
+
+      <!-- back crescent (behind needle) -->
+      <path d="M 150 300
+               C 175 284, 465 284, 490 300
+               C 470 292, 170 292, 150 300 Z"
+            fill="#f2f6fb" opacity=".38" filter="url(#bloom)"/>
+
+      <!-- vertical needle -->
+      <path id="needle" fill="url(#ndl)" filter="url(#bloom)"/>
+
+      <!-- front crescent (in front of needle) -->
+      <path d="M 150 300
+               C 175 316, 465 316, 490 300
+               C 470 308, 170 308, 150 300 Z"
+            fill="#ffffff" opacity=".98" filter="url(#bloom)"/>
+    </svg>
+  </div>
+  <div class="wordmark">ZEROLINEAR</div>
+  <div class="tagline">AI Research Lab</div>
+</div>
+<script>
+// build static tapered needle
+const CX=320,NTOP=140,NBOT=430,N=44,maxHW=3;
+let L='',Rt='';
+for(let i=0;i<=N;i++){
+  const t=i/N,y=NTOP+(NBOT-NTOP)*t,w=maxHW*Math.sin(Math.PI*t)+0.4;
+  L+=(i?'L':'M')+(CX-w).toFixed(2)+' '+y.toFixed(2)+' ';
+  Rt='L'+(CX+w).toFixed(2)+' '+y.toFixed(2)+' '+Rt;
+}
+document.getElementById('needle').setAttribute('d',L+Rt+'Z');
+</script>
+</body>
+</html>

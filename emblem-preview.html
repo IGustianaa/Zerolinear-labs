@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zerolinear — Lab Emblem</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#eef2f7;--dim:#8a8f98}
+  html,body{margin:0;height:100%;background:#000;display:grid;place-items:center;overflow:hidden}
+  .stage{width:min(92vmin,760px);aspect-ratio:1;position:relative}
+  svg{width:100%;height:100%;display:block;overflow:visible}
+  .corner{font-family:'JetBrains Mono',monospace;fill:var(--ink);font-size:20px;letter-spacing:.5px}
+  .card{font-family:'JetBrains Mono',monospace;fill:var(--ink);font-size:26px;font-weight:500}
+  .sub{font-family:'JetBrains Mono',monospace;fill:var(--dim);font-size:13px;letter-spacing:3px}
+
+  .draw{stroke-dasharray:var(--len);stroke-dashoffset:var(--len);
+        animation:draw 2.6s cubic-bezier(.16,1,.3,1) forwards}
+  .draw.d1{animation-delay:.05s}.draw.d2{animation-delay:.18s}.draw.d3{animation-delay:.32s}
+  @keyframes draw{to{stroke-dashoffset:0}}
+
+  .fade{opacity:0;animation:fade 1s ease forwards}
+  @keyframes fade{to{opacity:1}}
+
+  .dotdrift{animation:drift 9s linear infinite}
+  @keyframes drift{to{stroke-dashoffset:-200}}
+
+  #spin{transform-origin:380px 385px;animation:spin 80s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .breathe{animation:breathe 6s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.85}50%{opacity:1}}
+</style>
+</head>
+<body>
+<div class="stage"><div id="mount"></div></div>
+<script>
+const CX=380, CY=385, R=300;
+const NS='http://www.w3.org/2000/svg';
+
+// ---- helpers ----------------------------------------------------
+function clipToGlobe(pts){ // keep points inside circle, drop those outside
+  return pts.filter(p=>Math.hypot(p[0]-CX,p[1]-CY)<=R-1);
+}
+function toPath(pts){
+  if(pts.length<2) return '';
+  let d=`M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for(let i=1;i<pts.length;i++) d+=` L ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`;
+  return d;
+}
+// smooth catmull-rom -> cubic
+function smooth(pts){
+  if(pts.length<3) return toPath(pts);
+  let d=`M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[i-1]||pts[i], p1=pts[i], p2=pts[i+1], p3=pts[i+2]||p2;
+    const c1x=p1[0]+(p2[0]-p0[0])/6, c1y=p1[1]+(p2[1]-p0[1])/6;
+    const c2x=p2[0]-(p3[0]-p1[0])/6, c2y=p2[1]-(p3[1]-p1[1])/6;
+    d+=` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+// latitude band (ellipse arc across globe) at normalized height t (-1..1)
+function latBand(t){
+  const y=CY+t*R*0.92;
+  const halfW=Math.sqrt(Math.max(0,R*R-(y-CY)*(y-CY)));
+  const ry=halfW*0.16; // curvature of the band
+  const pts=[];
+  for(let i=0;i<=40;i++){
+    const x=CX-halfW+ (2*halfW)*(i/40);
+    const yy=y - ry*Math.sin(Math.PI*(i/40));
+    pts.push([x,yy]);
+  }
+  return pts;
+}
+// longitude meridian at normalized x offset t (-1..1)
+function lonMeridian(t){
+  const x=CX+t*R*0.92;
+  const halfH=Math.sqrt(Math.max(0,R*R-(x-CX)*(x-CX)));
+  const rx=halfH*0.16;
+  const pts=[];
+  for(let i=0;i<=40;i++){
+    const y=CY-halfH+(2*halfH)*(i/40);
+    const xx=x + rx*Math.sin(Math.PI*(i/40));
+    pts.push([xx,y]);
+  }
+  return pts;
+}
+// logarithmic spiral cluster (pressure system)
+function spiral(cx,cy,turns,a,b,rot,squashX,squashY){
+  const pts=[];
+  const steps=turns*60;
+  for(let i=0;i<=steps;i++){
+    const th=(i/60)*Math.PI*2;
+    const r=a+b*th;
+    let x=r*Math.cos(th+rot)*squashX;
+    let y=r*Math.sin(th+rot)*squashY;
+    pts.push([cx+x,cy+y]);
+  }
+  return pts;
+}
+
+// ---- build layers ----------------------------------------------
+let paths=[]; // {d, dotted, cls}
+function add(pts,dotted,cls){ const cl=clipToGlobe(pts); if(cl.length>3) paths.push({d:smooth(cl),dotted,cls:cls||''}); }
+
+// graticule — latitude bands
+for(let i=-4;i<=4;i++){ add(latBand(i/4.5), i%2!==0, 'grat'); }
+// longitude meridians
+for(let i=-4;i<=4;i++){ add(lonMeridian(i/4.5), i%2!==0, 'grat'); }
+
+// LOW system (upper-right) — tight nested spiral
+const Lx=545,Ly=185;
+add(spiral(Lx,Ly,3.2,4,7,0.6,1.15,0.8), false,'sys');
+add(spiral(Lx,Ly,3.0,10,7,2.1,1.15,0.8), true,'sys');
+// HIGH system (lower-left) — elongated teardrop spiral
+const Hx=205,Hy=560;
+add(spiral(Hx,Hy,3.4,4,8,-0.7,1.35,0.95), false,'sys');
+add(spiral(Hx,Hy,3.2,11,8,0.9,1.35,0.95), true,'sys');
+// small unlabeled cluster upper-left
+add(spiral(185,195,2.4,3,7,1.2,1.1,0.85), false,'sys');
+add(spiral(185,195,2.2,9,7,2.8,1.1,0.85), true,'sys');
+
+// a few sweeping free contours to tie systems together
+add([[CX-260,CY-40],[CX-120,CY-120],[CX+40,CY-90],[CX+180,CY-160],[CX+250,CY-90]],false,'flow');
+add([[CX-250,CY+70],[CX-90,CY+30],[CX+70,CY+90],[CX+210,CY+40],[CX+255,CY+110]],true,'flow');
+
+// ---- render -----------------------------------------------------
+let inner='';
+paths.forEach((p,i)=>{
+  const cls = p.dotted
+     ? `dotdrift ${p.cls}`
+     : `draw d${(i%3)+1} ${p.cls}`;
+  const style = p.dotted
+     ? `stroke-dasharray:1 7;stroke-linecap:round;opacity:.55`
+     : `--len:1400`;
+  const w = p.dotted?1.6: (p.cls==='sys'?2.2:2);
+  const op = p.cls==='grat' ? 0.4 : 0.92;
+  inner += `<path d="${p.d}" fill="none" stroke="#eef2f7" stroke-width="${w}" style="${style};opacity:${p.dotted?0.5:op}" class="${cls}"/>`;
+});
+
+const svg=`
+<svg viewBox="0 0 760 780" xmlns="${NS}">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="48%" r="55%">
+      <stop offset="0%" stop-color="#0A84FF" stop-opacity="0.18"/>
+      <stop offset="55%" stop-color="#0A84FF" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" cx="50%" cy="48%" r="62%">
+      <stop offset="60%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.85"/>
+    </radialGradient>
+    <clipPath id="globe"><circle cx="${CX}" cy="${CY}" r="${R}"/></clipPath>
+  </defs>
+
+  <rect x="0" y="0" width="760" height="780" fill="url(#glow)"/>
+  <g clip-path="url(#globe)">
+    <g id="spin" class="breathe">${inner}</g>
+  </g>
+  <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#eef2f7" stroke-width="1" opacity="0.25" class="fade" style="animation-delay:.4s"/>
+  <rect x="0" y="0" width="760" height="780" fill="url(#vig)"/>
+
+  <!-- compass -->
+  <g class="fade" style="animation-delay:1.1s">
+    <text class="corner" x="${CX}" y="${CY-R-16}" text-anchor="middle">N</text>
+    <text class="corner" x="${CX}" y="${CY+R+30}" text-anchor="middle">S</text>
+    <text class="corner" x="${CX-R-24}" y="${CY+7}" text-anchor="middle">W</text>
+    <text class="corner" x="${CX+R+24}" y="${CY+7}" text-anchor="middle">E</text>
+  </g>
+
+  <!-- corner readouts -->
+  <g class="fade" style="animation-delay:1.3s">
+    <text class="corner" x="24" y="40">-89.2&#176;C</text>
+    <text class="corner" x="736" y="40" text-anchor="end">-127.2&#176;F</text>
+    <text class="corner" x="24" y="762">78&#176;27'52.1"S</text>
+    <text class="corner" x="736" y="762" text-anchor="end">106&#176;50'02.8"E</text>
+  </g>
+
+  <!-- pressure markers -->
+  <g class="fade" style="animation-delay:1.6s">
+    <text class="card" x="${Lx}" y="${Ly+9}" text-anchor="middle">L</text>
+    <text class="card" x="${Hx}" y="${Hy+9}" text-anchor="middle">H</text>
+  </g>
+</svg>`;
+document.getElementById('mount').innerHTML=svg;
+</script>
+</body>
+</html>
